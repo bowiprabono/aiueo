@@ -4,7 +4,12 @@
 
 // --- State ---
 let isResultVisible = false;
-let currentResult = '';
+let results = {
+    aiueo: '',
+    email: '',
+    base64: ''
+};
+let currentTab = 'aiueo';
 
 // --- Theme Toggle ---
 function toggleTheme() {
@@ -52,6 +57,16 @@ function convert(word, suffixNumber) {
     return `${firstHalf}^${vowels}|${suffixNumber}`;
 }
 
+function convertEmailPattern(word, suffixNumber) {
+    const vowels = (word.match(/[aeiou]/gi) || []).join('').toUpperCase();
+    return `${word}@${vowels}!${suffixNumber}`;
+}
+
+function convertBase64Pattern(emailPatternString) {
+    // btoa creates Base64 from string
+    return btoa(emailPatternString);
+}
+
 /**
  * Generate a masked version of the result string.
  * Uses bullet characters to hide the actual value.
@@ -82,29 +97,53 @@ function convertText() {
         return;
     }
 
-    currentResult = convert(word, suffixNumber);
+    results.aiueo = convert(word, suffixNumber);
+    results.email = convertEmailPattern(word, suffixNumber);
+    results.base64 = convertBase64Pattern(results.email);
 
-    // Update result display
-    const resultText = document.getElementById('resultText');
-    const resultMasked = document.getElementById('resultMasked');
-    const resultCard = document.getElementById('resultCard');
-
-    resultText.textContent = currentResult;
-    resultMasked.textContent = maskResult(currentResult);
+    updateResultDisplay();
 
     // Default to masked state
     isResultVisible = false;
+    const resultMasked = document.getElementById('resultMasked');
     resultMasked.classList.remove('hidden');
     document.getElementById('eyeOpenIcon').style.display = 'none';
     document.getElementById('eyeClosedIcon').style.display = 'block';
 
     // Show result card with animation
+    const resultCard = document.getElementById('resultCard');
     resultCard.style.display = 'none';
     resultCard.offsetHeight; // force reflow
     resultCard.style.display = 'block';
 
     // Reset copy button state
     resetCopyButton();
+}
+
+function updateResultDisplay() {
+    const resultText = document.getElementById('resultText');
+    const resultMasked = document.getElementById('resultMasked');
+    
+    const displayValue = results[currentTab];
+    resultText.textContent = displayValue;
+    resultMasked.textContent = maskResult(displayValue);
+}
+
+function switchTab(tabId) {
+    currentTab = tabId;
+
+    // Update active class on buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+
+    // Only update result if a conversion has happened
+    if (results.aiueo) {
+        updateResultDisplay();
+        // Reset copy button because the text changed
+        resetCopyButton();
+    }
 }
 
 // --- Eye Toggle (Show / Hide Result) ---
@@ -128,6 +167,7 @@ function toggleVisibility() {
 
 // --- Copy to Clipboard ---
 function copyResult() {
+    const currentResult = results[currentTab];
     if (!currentResult) return;
 
     const btn = document.getElementById('copyBtn');
