@@ -28,19 +28,23 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch: serve from cache first, then network
+// Fetch: Network-first, then cache (auto-updates while keeping offline support)
 self.addEventListener('fetch', (event) => {
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            return cached || fetch(event.request).then((response) => {
-                // Cache new requests dynamically (e.g., Google Fonts)
-                if (response.status === 200) {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        fetch(event.request).then((response) => {
+            // Network succeeded: update the cache dynamically and return response
+            if (response.status === 200) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+            return response;
+        }).catch(() => {
+            // Network failed (offline): serve from cache
+            return caches.match(event.request).then((cached) => {
+                if (cached) {
+                    return cached;
                 }
-                return response;
-            }).catch(() => {
-                // If offline and not cached, return a basic fallback for navigation
+                // If offline and not in cache, fallback to index for navigation
                 if (event.request.mode === 'navigate') {
                     return caches.match('./index.html');
                 }
